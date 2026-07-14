@@ -427,85 +427,39 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
         gap: 10px;
     }
 
-    /* 表单从多列改为单列，标签和输入框垂直排列 */
-    .form-row {
-        grid-template-columns: 1fr;
-        gap: 4px;
-        margin-bottom: 12px;
-    }
-    .form-row label {
-        width: auto;
-        text-align: left;
-        font-size: 13px;
-        font-weight: 500;
-    }
+    /* 表单从多列改为单列 */
     .form-row-2col,
     .form-row-3col,
     .form-row-4col {
         grid-template-columns: 1fr;
-        gap: 8px;
     }
     .form-row-2col > div,
     .form-row-3col > div,
     .form-row-4col > div {
-        grid-template-columns: 1fr;
-        gap: 4px;
-    }
-    .form-row-2col label,
-    .form-row-3col label,
-    .form-row-4col label {
-        width: auto;
-        text-align: left;
-        font-size: 13px;
+        grid-template-columns: 4em 1fr;
     }
 
-    /* 输入框更大，方便触摸 */
-    input[type="text"],
-    input[type="password"],
-    input[type="number"],
-    select {
-        padding: 10px 12px;
-        font-size: 16px; /* 防止 iOS 自动缩放 */
-        min-height: 44px;
-    }
-
-    /* 按钮更大 */
-    .btn {
-        padding: 10px 16px;
-        font-size: 14px;
-        min-height: 44px;
-    }
-    .btn-sm {
-        padding: 8px 14px;
-        font-size: 13px;
-        min-height: 40px;
-    }
-
-    /* 按钮栏换行，2列布局 */
+    /* 按钮栏换行 */
     .button-bar {
         flex-wrap: wrap;
-        gap: 8px;
     }
     .button-bar .btn {
         flex: 1 1 calc(50% - 4px);
         min-width: 0;
+        padding: 8px 10px;
+        font-size: 13px;
     }
 
     /* 模式选择竖排 */
     .mode-row {
         flex-direction: column;
-        gap: 10px;
-    }
-    .radio-label {
-        padding: 8px 0;
-        font-size: 14px;
+        gap: 8px;
     }
 
-    /* 日志区 */
+    /* 日志区缩小 */
     .log-view {
-        min-height: 150px;
+        min-height: 120px;
         font-size: 11px;
-        padding: 8px;
     }
 
     /* 模态框全屏 */
@@ -530,15 +484,9 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
     /* 表格横向滚动 */
     .table-scroll {
         overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
     }
     .data-table {
         min-width: 500px;
-    }
-    .data-table th,
-    .data-table td {
-        padding: 10px 8px;
-        font-size: 13px;
     }
 
     /* 编辑面板适配 */
@@ -549,99 +497,40 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
     .edit-row > label:first-child {
         width: auto;
     }
-    #edit-options {
-        max-height: 120px;
-    }
-    .opt-item label {
-        padding: 8px 0;
-    }
-    .opt-item input[type="radio"],
-    .opt-item input[type="checkbox"] {
-        width: 20px;
-        height: 20px;
-    }
 
     /* 状态栏 */
     .status-bar {
-        padding: 8px 12px;
+        padding: 6px 12px;
         font-size: 11px;
         flex-wrap: wrap;
         gap: 4px;
     }
 
     /* 帮助弹窗 */
-    .help-body {
-        padding: 16px;
-    }
     .help-step {
         flex-direction: column;
         gap: 4px;
     }
     .step-num {
-        width: 28px;
-        height: 28px;
-        font-size: 13px;
-    }
-    .help-section h4 {
-        font-size: 15px;
-    }
-    .help-section p,
-    .help-section li {
-        font-size: 14px;
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
     }
 
     /* 链接输入区域 */
     .input-with-btn {
         flex-wrap: wrap;
-        gap: 8px;
     }
     .input-with-btn input {
         flex: 1 1 100%;
     }
     .input-with-btn .btn {
-        flex: 1 1 auto;
+        flex: 0 0 auto;
     }
 
     /* 确认弹窗 */
     #confirm-msg {
-        font-size: 15px;
+        font-size: 14px;
         line-height: 1.6;
-    }
-
-    /* 扫码按钮 */
-    .qr-scan-btn {
-        display: inline-flex;
-    }
-
-    /* 过滤栏 */
-    .filter-bar {
-        flex-wrap: wrap;
-    }
-    .filter-bar select {
-        width: 100% !important;
-    }
-    .filter-bar input {
-        width: 100%;
-    }
-
-    /* 弹窗底部按钮 */
-    .modal-footer {
-        flex-wrap: wrap;
-        padding: 12px;
-    }
-    .modal-footer .btn {
-        flex: 1;
-    }
-
-    /* 题库统计栏 */
-    .bank-stats-bar {
-        font-size: 12px;
-        gap: 8px;
-    }
-
-    /* 编辑面板高度调整 */
-    #modal-bank-edit .modal-body > div:last-child {
-        height: auto;
-        min-height: 200px;
     }
 }
