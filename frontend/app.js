@@ -62,7 +62,23 @@ window.addEventListener('DOMContentLoaded', () => {
     loadConfig();
     refreshBankStats();
     connectWS();
+
+    // 移动端默认收起 AI 配置区域
+    if (window.innerWidth <= 768) {
+        const section = document.getElementById('ai-config-section');
+        if (section) {
+            section.classList.add('collapsed');
+        }
+    }
 });
+
+// ── 折叠功能 ──
+function toggleAISettings() {
+    const section = document.getElementById('ai-config-section');
+    if (section) {
+        section.classList.toggle('collapsed');
+    }
+}
 
 // ── 配置 ──
 async function loadConfig() {

@@ -51,21 +51,23 @@
             </div>
         </fieldset>
 
-        <fieldset class="group-box">
-            <legend>AI 配置</legend>
-            <div class="form-row form-row-2col">
-                <div><label>接口地址</label><input type="text" id="base-url" placeholder="https://api.openai.com/v1"></div>
-                <div><label>代理地址</label><input type="text" id="proxy-url" placeholder="http://127.0.0.1:7890"></div>
-            </div>
-            <div class="form-row form-row-2col">
-                <div><label>接口密钥</label><div class="input-with-btn"><input type="password" id="api-key" placeholder="sk-..."><button class="btn btn-sm" onclick="testAPI()">测试连通</button></div></div>
-                <div><label>模型名称</label><div class="input-with-btn"><input type="text" id="model-name" placeholder="gpt-4o / deepseek-chat / ..."><button class="btn btn-sm" onclick="openModelPicker()">选择模型</button></div></div>
-            </div>
-            <div class="form-row form-row-4col">
-                <div><label>投票轮数</label><input type="number" id="vote-rounds" min="1" max="10" value="3"></div>
-                <div><label>答题轮次</label><input type="number" id="loop-count" min="1" max="200" value="1"></div>
-                <div><label>请求延迟</label><input type="number" id="request-delay" min="0.5" max="10" step="0.5" value="1" placeholder="单位:秒"></div>
-                <div><label>答题时间</label><input type="number" id="submit-delay" min="0" max="300" step="0.5" value="3" placeholder="单位:秒"></div>
+        <fieldset class="group-box collapsible" id="ai-config-section">
+            <legend onclick="toggleAISettings()">AI 配置 <span class="collapse-icon" id="ai-config-icon">▼</span></legend>
+            <div class="collapsible-content" id="ai-config-content">
+                <div class="form-row form-row-2col">
+                    <div><label>接口地址</label><input type="text" id="base-url" placeholder="https://api.openai.com/v1"></div>
+                    <div><label>代理地址</label><input type="text" id="proxy-url" placeholder="http://127.0.0.1:7890"></div>
+                </div>
+                <div class="form-row form-row-2col">
+                    <div><label>接口密钥</label><div class="input-with-btn"><input type="password" id="api-key" placeholder="sk-..."><button class="btn btn-sm" onclick="testAPI()">测试连通</button></div></div>
+                    <div><label>模型名称</label><div class="input-with-btn"><input type="text" id="model-name" placeholder="gpt-4o / deepseek-chat / ..."><button class="btn btn-sm" onclick="openModelPicker()">选择模型</button></div></div>
+                </div>
+                <div class="form-row form-row-4col">
+                    <div><label>投票轮数</label><input type="number" id="vote-rounds" min="1" max="10" value="3"></div>
+                    <div><label>答题轮次</label><input type="number" id="loop-count" min="1" max="200" value="1"></div>
+                    <div><label>请求延迟</label><input type="number" id="request-delay" min="0.5" max="10" step="0.5" value="1" placeholder="单位:秒"></div>
+                    <div><label>答题时间</label><input type="number" id="submit-delay" min="0" max="300" step="0.5" value="3" placeholder="单位:秒"></div>
+                </div>
             </div>
         </fieldset>
 

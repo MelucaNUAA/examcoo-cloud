@@ -408,6 +408,27 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 }
 
 /* ──────────────────────────────────────
+   可折叠区域
+   ────────────────────────────────────── */
+.collapsible legend {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.collapse-icon {
+    font-size: 10px;
+    transition: transform 0.2s ease;
+}
+.collapsible.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+.collapsible.collapsed .collapsible-content {
+    display: none;
+}
+
+/* ──────────────────────────────────────
    移动端响应式适配
    ────────────────────────────────────── */
 @media (max-width: 768px) {
