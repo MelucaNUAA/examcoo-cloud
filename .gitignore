@@ -9,7 +9,6 @@
 
 # Data files (local only)
 data/config.json
-data/answer_bank.json
 
 # IDE
 .idea/
