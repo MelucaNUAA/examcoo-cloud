@@ -12,6 +12,7 @@ RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=builder /app/server .
 COPY frontend/ ./frontend/
+COPY data/ ./data/
 RUN mkdir -p /app/data
 ENV DATA_DIR=/app/data
 ENV PORT=8080
