@@ -1,0 +1,14 @@
+services:
+  examcoo:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - examcoo-data:/app/data
+    environment:
+      - PORT=8080
+      - DATA_DIR=/app/data
+    restart: unless-stopped
+
+volumes:
+  examcoo-data:

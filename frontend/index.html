@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExamCoo 自动答题工具</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <span class="header-title">📝 ExamCoo 自动答题工具</span>
+        <span class="header-right">
+            <span class="header-version">v1.0</span>
+            <button class="help-btn" onclick="openHelp()" title="使用说明">?</button>
+        </span>
+    </header>
+
+    <div class="main-content">
+        <fieldset class="group-box">
+            <legend>考试信息</legend>
+            <div class="form-row">
+                <label>考试链接</label>
+                <div class="input-with-btn">
+                    <input type="text" id="exam-url" class="input-full" placeholder="https://www.examcoo.com/...">
+                    <button class="btn btn-sm" onclick="openQRScanner()" title="扫码获取链接">扫码</button>
+                    <label class="btn btn-sm" title="从图片识别二维码" style="cursor:pointer;">
+                        图片
+                        <input type="file" accept="image/*" style="display:none;" onchange="qrFromFile(this)">
+                    </label>
+                </div>
+            </div>
+            <div class="form-row form-row-3col">
+                <div><label>姓名</label><input type="text" id="user-name" placeholder="请输入姓名"></div>
+                <div><label>工号</label><input type="text" id="user-eid" placeholder="请输入工号"></div>
+                <div><label>部门</label><input type="text" id="user-dept" placeholder="请输入部门"></div>
+            </div>
+        </fieldset>
+
+        <fieldset class="group-box">
+            <legend>执行模式</legend>
+            <div class="mode-row">
+                <label class="radio-label">
+                    <input type="radio" name="mode" value="answer" checked onchange="onModeChange(this.value)">
+                    自动答题 — 提交答案并查成绩
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="mode" value="bank" onchange="onModeChange(this.value)">
+                    扫题入库 — 解析题目结构保存（不作答）
+                </label>
+            </div>
+        </fieldset>
+
+        <fieldset class="group-box">
+            <legend>AI 配置</legend>
+            <div class="form-row form-row-2col">
+                <div><label>接口地址</label><input type="text" id="base-url" placeholder="https://api.openai.com/v1"></div>
+                <div><label>代理地址</label><input type="text" id="proxy-url" placeholder="http://127.0.0.1:7890"></div>
+            </div>
+            <div class="form-row form-row-2col">
+                <div><label>接口密钥</label><div class="input-with-btn"><input type="password" id="api-key" placeholder="sk-..."><button class="btn btn-sm" onclick="testAPI()">测试连通</button></div></div>
+                <div><label>模型名称</label><div class="input-with-btn"><input type="text" id="model-name" placeholder="gpt-4o / deepseek-chat / ..."><button class="btn btn-sm" onclick="openModelPicker()">选择模型</button></div></div>
+            </div>
+            <div class="form-row form-row-4col">
+                <div><label>投票轮数</label><input type="number" id="vote-rounds" min="1" max="10" value="3"></div>
+                <div><label>答题轮次</label><input type="number" id="loop-count" min="1" max="200" value="1"></div>
+                <div><label>请求延迟</label><input type="number" id="request-delay" min="0.5" max="10" step="0.5" value="1" placeholder="单位:秒"></div>
+                <div><label>答题时间</label><input type="number" id="submit-delay" min="0" max="300" step="0.5" value="3" placeholder="单位:秒"></div>
+            </div>
+        </fieldset>
+
+        <div class="button-bar">
+            <button id="btn-start" class="btn btn-primary" onclick="startTask()">🚀 开始执行</button>
+            <button id="btn-stop" class="btn btn-danger" onclick="stopTask()" disabled>⏹ 停止</button>
+            <button class="btn" onclick="saveConfig()">💾 保存配置</button>
+            <button class="btn" onclick="openBankViewer()">📂 查看题库</button>
+            <button class="btn" onclick="openBankEditor()">✏️ 编辑题库</button>
+            <button class="btn" onclick="clearLog()">🗑️ 清空日志</button>
+        </div>
+
+        <fieldset class="group-box group-box-log">
+            <legend>运行日志</legend>
+            <div id="log-view" class="log-view"></div>
+        </fieldset>
+    </div>
+
+    <footer class="status-bar">
+        <span id="status-text">就绪</span>
+        <span id="bank-stats">题库: 加载中...</span>
+    </footer>
+
+    <div id="modal-model" class="modal" style="display:none">
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h3>选择模型</h3>
+                <button class="close-btn" onclick="closeModal('modal-model')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-bar">
+                    <input type="text" id="model-search" class="input-full" placeholder="输入关键词过滤模型名称..." oninput="filterModels()">
+                </div>
+                <div id="model-count" class="muted" style="margin: 8px 0; font-size: 12px; color: #6b7280;">正在加载...</div>
+                <div id="model-list" class="model-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-sm" onclick="fetchModels()">重新拉取</button>
+                <button class="btn btn-sm btn-primary" onclick="useSelectedModel()">使用选中</button>
+                <button class="btn btn-sm" onclick="closeModal('modal-model')">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-bank-view" class="modal" style="display:none">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3>题库</h3>
+                <div class="bank-stats-bar">
+                    <span class="stats-total">总数 <strong id="view-stats-total">0</strong></span>
+                    <span class="stats-divider">|</span>
+                    <span class="stats-verified">已校验 <strong id="view-stats-verified">0</strong></span>
+                    <span class="stats-divider">|</span>
+                    <span class="stats-unverified">未校验 <strong id="view-stats-unverified">0</strong></span>
+                </div>
+                <button class="close-btn" onclick="closeModal('modal-bank-view')">&times;</button>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; overflow: hidden; padding: 16px 20px; gap: 12px;">
+                <div class="filter-bar" style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+                    <select id="view-filter-type" onchange="applyViewerFilter()" style="width: 120px;">
+                        <option value="">全部题型</option>
+                        <option value="s1">单选题</option>
+                        <option value="s2">多选题</option>
+                        <option value="s3">判断题</option>
+                    </select>
+                    <select id="view-filter-verify" onchange="applyViewerFilter()" style="width: 120px;">
+                        <option value="">全部状态</option>
+                        <option value="yes">已校验</option>
+                        <option value="no">未校验</option>
+                    </select>
+                    <input type="text" id="view-filter-search" placeholder="题目关键词..." oninput="applyViewerFilter()" style="flex: 1;">
+                    <span id="view-filter-count" class="muted" style="font-size: 13px; color: #64748b; font-weight: 500; min-width: 80px; text-align: right;">0 / 0 题</span>
+                </div>
+                <div class="table-scroll" style="flex: 1; min-height: 0;">
+                    <table class="data-table">
+                        <thead><tr><th>#</th><th>答案</th><th>类型</th><th>状态</th><th class="col-stretch">题目</th></tr></thead>
+                        <tbody id="bank-view-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-sm" onclick="closeModal('modal-bank-view')">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-bank-edit" class="modal" style="display:none">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3>编辑题库</h3>
+                <div class="bank-stats-bar">
+                    <span class="stats-total">总数 <strong id="edit-stats-total">0</strong></span>
+                    <span class="stats-divider">|</span>
+                    <span class="stats-verified">已校验 <strong id="edit-stats-verified">0</strong></span>
+                    <span class="stats-divider">|</span>
+                    <span class="stats-unverified">未校验 <strong id="edit-stats-unverified">0</strong></span>
+                </div>
+                <button class="close-btn" onclick="closeModal('modal-bank-edit')">&times;</button>
+            </div>
+            
+            <div class="modal-body" style="display: flex; flex-direction: column; overflow: hidden; padding: 0;">
+                
+                <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 20px; gap: 12px; background: #fff;">
+                    <div class="filter-bar" style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+                        <select id="filter-type" onchange="applyEditorFilter()" style="width: 120px;">
+                            <option value="">全部题型</option>
+                            <option value="s1">单选题</option>
+                            <option value="s2">多选题</option>
+                            <option value="s3">判断题</option>
+                        </select>
+                        <select id="filter-verify" onchange="applyEditorFilter()" style="width: 120px;">
+                            <option value="">全部状态</option>
+                            <option value="yes">已校验</option>
+                            <option value="no">未校验</option>
+                        </select>
+                        <input type="text" id="filter-search" placeholder="题目关键词..." oninput="applyEditorFilter()" style="flex: 1;">
+                        <span id="filter-count" class="muted" style="font-size: 13px; color: #64748b; font-weight: 500; min-width: 80px; text-align: right;">0 / 0 题</span>
+                    </div>
+
+                    <div class="table-scroll" style="flex: 1; min-height: 0;">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>#</th><th>答案</th><th>题型</th><th>校验</th><th class="col-stretch">题目</th></tr>
+                            </thead>
+                            <tbody id="bank-edit-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="height: 280px; flex-shrink: 0; border-top: 1px solid var(--border); background: #f8fafc; padding: 16px 20px; display: flex; flex-direction: column;">
+                    
+                    <div id="edit-panel" style="display:none; flex: 1; min-height: 0; margin: 0; padding: 0; border: none; box-shadow: none; background: transparent;">
+                        <div style="display: flex; flex-direction: column; height: 100%;">
+                            <div style="font-weight: 600; color: #4f46e5; margin-bottom: 8px; flex-shrink: 0;">── 编辑选中题目 ──</div>
+                            
+                            <div id="edit-question" style="margin-bottom: 8px; font-weight: 500; line-height: 1.5; max-height: 3em; flex-shrink: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;"></div>
+                            
+                            <div id="edit-options" style="max-height: 104px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; padding-right: 4px; flex-shrink: 0;"></div>
+                            
+                            <div class="edit-row" style="display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; flex-shrink: 0; margin-top: auto;">
+                                <label style="white-space: nowrap; width: 4em; text-align: justify; text-align-last: justify; color: #475569; font-size: 12px; font-weight: 500;">答 案</label>
+                                <input type="text" id="edit-answer" placeholder="单选: A  多选: ABC  判断: 正确/错误" style="flex: 1; min-width: 150px;">
+                                <label class="checkbox-label" style="white-space: nowrap; width: auto; margin-left: 4px;"><input type="checkbox" id="edit-verified"> 标记为已校验</label>
+                                <button class="btn btn-sm btn-primary" style="white-space: nowrap;" onclick="saveCurrentRow()">保存此题</button>
+                            </div>
+                            
+                            <div id="edit-status" style="margin-top: 4px; font-size: 12px; color: #10b981; font-weight: 500; min-height: 18px; flex-shrink: 0;"></div>
+                        </div>
+                    </div>
+
+                    <div class="batch-bar" style="margin-top: auto; display: flex; gap: 8px; align-items: center; padding-top: 12px; border-top: 1px solid var(--border); flex-shrink: 0;">
+                        <button id="btn-verify-all" class="btn btn-sm" onclick="batchVerifyAll()">全部标为已校验</button>
+                        <button id="btn-unverify-all" class="btn btn-sm" onclick="batchUnverifyAll()">全部取消校验</button>
+                        <button id="btn-delete-row" class="btn btn-sm btn-danger" onclick="deleteSelectedRow()">删除选中</button>
+                        <span id="batch-status" class="muted" style="margin-left: auto; font-size: 12px; color: #64748b;">点选题目后可编辑</span>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-sm" onclick="closeModal('modal-bank-edit'); refreshBankStats()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-qr" class="modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>扫描二维码</h3>
+                <button class="close-btn" onclick="closeQRScanner()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 16px; text-align: center;">
+                <div id="qr-reader" style="width: 100%; min-height: 260px;"></div>
+                <div id="qr-status" style="margin-top: 8px; font-size: 12px; color: #ef4444; min-height: 18px;"></div>
+                <p style="margin-top: 8px; font-size: 12px; color: #64748b;">将二维码对准摄像头，或使用「图片」按钮从相册选择</p>
+            </div>
+            <div class="modal-footer">
+                <label class="btn btn-sm" style="cursor:pointer;">
+                    从图片选择
+                    <input type="file" accept="image/*" style="display:none;" onchange="qrFromFile(this)">
+                </label>
+                <button class="btn btn-sm" onclick="closeQRScanner()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-confirm" class="modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>确认操作</h3>
+                <button class="close-btn" onclick="closeConfirm(false)">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <p id="confirm-msg" style="font-size: 14px; line-height: 1.6; color: #334155;"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-sm" onclick="closeConfirm(false)">取消</button>
+                <button class="btn btn-sm btn-danger" onclick="closeConfirm(true)">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-help" class="modal" style="display:none">
+        <div class="modal-content modal-help">
+            <div class="modal-header">
+                <h3>使用说明</h3>
+                <button class="close-btn" onclick="closeModal('modal-help')">&times;</button>
+            </div>
+            <div class="modal-body help-body">
+                <div class="help-section">
+                    <h4>一、准备 API 服务</h4>
+                    <p>这个工具需要调用 AI 来答题，你需要一个能用的 AI 接口。</p>
+                    <div class="help-card">
+                        <h5>推荐：Kilo.ai（免费，开箱即用）</h5>
+                        <ol>
+                            <li>打开 <a href="#" onclick="openLink('https://kilo.ai')">kilo.ai</a> 注册账号</li>
+                            <li>登录后，点击左侧 "API Keys"</li>
+                            <li>点 "Create API Key"，复制密钥（类似 <code>ki_xxxxxxxx</code>）</li>
+                            <li>回到工具，填入配置：
+                                <ul>
+                                    <li>接口地址：<code>https://api.kilo.ai/api/openrouter</code></li>
+                                    <li>接口密钥：粘贴刚才复制的密钥</li>
+                                    <li>模型名称：点击「选择模型」选一个带 <code>free</code> 的免费模型</li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </div>
+                    <p>其他兼容 OpenAI 格式的 API 也可以用（如 DeepSeek、OpenAI 官方等）。</p>
+                </div>
+
+                <div class="help-section">
+                    <h4>二、代理配置（可选）</h4>
+                    <p>如果网络无法直接访问 AI 服务，可以填代理地址（如 <code>http://127.0.0.1:7890</code>），不需要就留空。</p>
+                </div>
+
+                <div class="help-section">
+                    <h4>三、基本使用</h4>
+                    <div class="help-steps">
+                        <div class="help-step">
+                            <span class="step-num">1</span>
+                            <div>
+                                <strong>填写考试信息</strong>
+                                <p>在 examcoo.com 打开考试页面，复制浏览器地址栏的完整链接，填入姓名、工号、部门。</p>
+                            </div>
+                        </div>
+                        <div class="help-step">
+                            <span class="step-num">2</span>
+                            <div>
+                                <strong>选择执行模式</strong>
+                                <p><strong>自动答题</strong>：抓取题目、AI 回答、自动提交、查成绩。<br>
+                                <strong>扫题入库</strong>：只抓取题目保存到本地，不调用 AI，不提交。</p>
+                            </div>
+                        </div>
+                        <div class="help-step">
+                            <span class="step-num">3</span>
+                            <div>
+                                <strong>点击「开始执行」</strong>
+                                <p>底部日志区会实时显示进度，等它跑完就行。想中途停止点「停止」按钮。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h4>四、参数说明</h4>
+                    <table class="help-table">
+                        <tr><th>参数</th><th>说明</th><th>建议值</th></tr>
+                        <tr><td>投票轮数</td><td>同一道题让 AI 答多次，取出现最多的答案。轮数越多越准，但也越慢越费钱。</td><td>3（默认）</td></tr>
+                        <tr><td>答题轮次</td><td>程序自动提交多少次。设为多轮会循环执行「抓题-答题-提交-查分」。</td><td>1（默认）</td></tr>
+                        <tr><td>请求延迟</td><td>每次 AI 请求之间的等待时间，避免请求过快。</td><td>1 秒</td></tr>
+                        <tr><td>答题时间</td><td>每轮从开始答题到提交的最短时间，模拟真人答题节奏。</td><td>3 秒</td></tr>
+                    </table>
+                </div>
+
+                <div class="help-section">
+                    <h4>五、题库管理</h4>
+                    <p>程序自动维护本地题库 <code>answer_bank.json</code>（在 exe 同目录）。</p>
+                    <ul>
+                        <li><strong>查看题库</strong>：可按题型、状态、关键词筛选</li>
+                        <li><strong>编辑题库</strong>：点击题目修改答案，可标记为已校验</li>
+                        <li><strong>自动更新</strong>：答对的题自动校验，答错的题会修正或删除旧答案</li>
+                    </ul>
+                    <p>已校验的题目下次直接使用，不再调用 AI，既快又省钱。</p>
+                </div>
+
+                <div class="help-section">
+                    <h4>六、支持的题型</h4>
+                    <ul>
+                        <li>单选题（A/B/C/D 选一个）</li>
+                        <li>多选题（A/B/C/D 选多个）</li>
+                        <li>判断题（正确/错误）</li>
+                    </ul>
+                    <p>填空题、简答题等不支持，会自动跳过。</p>
+                </div>
+
+                <div class="help-section">
+                    <h4>七、常见问题</h4>
+                    <div class="help-faq">
+                        <p><strong>Q：显示 "API Key 无效"</strong><br>检查接口密钥是否填对，有没有多余空格，用「测试连通」按钮验证。</p>
+                        <p><strong>Q：显示 "模型不存在"</strong><br>模型名称写错了，点「选择模型」先拉取列表再选。</p>
+                        <p><strong>Q：考试链接怎么获取？</strong><br>在浏览器打开考试页面（能看到题目或开始按钮），复制地址栏完整 URL。</p>
+                        <p><strong>Q：程序一直在跑没结果？</strong><br>可能是 AI 接口响应慢，看日志区有没有红色错误。投票轮数设得高需要等久一点。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-sm btn-primary" onclick="closeModal('modal-help')">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
