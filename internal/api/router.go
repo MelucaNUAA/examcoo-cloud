@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"os"
 )
 
 // NewRouter creates the HTTP router with all API endpoints
@@ -32,6 +33,14 @@ func NewRouter(app *App, hub *WsHub) http.Handler {
 	mux.HandleFunc("DELETE /api/bank/entry/", app.DeleteBankEntry)
 	mux.HandleFunc("POST /api/bank/batch-verify", app.BatchVerifyAll)
 	mux.HandleFunc("POST /api/bank/batch-unverify", app.BatchUnverifyAll)
+
+	// Static files - serve frontend
+	frontendDir := "frontend"
+	if d := os.Getenv("FRONTEND_DIR"); d != "" {
+		frontendDir = d
+	}
+	fs := http.FileServer(http.Dir(frontendDir))
+	mux.Handle("/", fs)
 
 	// Apply middleware
 	return Recovery(CORS(Logging(mux)))
