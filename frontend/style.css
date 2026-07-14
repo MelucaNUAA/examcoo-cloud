@@ -480,12 +480,12 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
     /* 日志区域优化 -增大显示面积 */
     .group-box-log {
         flex: 1;
-        min-height: 200px;
+        min-height: 300px;
     }
     .log-view {
-        min-height: 180px;
-        font-size: 12px;
-        line-height: 1.5;
+        min-height: 280px;
+        font-size: 10px;
+        line-height: 1.4;
     }
 
     /* 模态框优化 -确保可滚动和关闭 */
