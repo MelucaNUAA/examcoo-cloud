@@ -17,7 +17,7 @@ var upgrader = websocket.Upgrader{
 const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
-	pingPeriod     = 50 * time.Second // Must be less than pongWait
+	pingPeriod     = 50 * time.Second
 	maxMessageSize = 512
 )
 
@@ -27,16 +27,22 @@ type WsMessage struct {
 	Data interface{} `json:"data"`
 }
 
-// WsHub manages WebSocket connections grouped by task_id
+// client represents a single WebSocket client
+type client struct {
+	conn   *websocket.Conn
+	taskID string
+}
+
+// WsHub manages WebSocket connections
 type WsHub struct {
-	mu    sync.RWMutex
-	conns map[string]map[*websocket.Conn]bool // task_id -> set of connections
+	mu      sync.RWMutex
+	clients map[*client]bool
 }
 
 // NewWsHub creates a new WebSocket hub
 func NewWsHub() *WsHub {
 	return &WsHub{
-		conns: make(map[string]map[*websocket.Conn]bool),
+		clients: make(map[*client]bool),
 	}
 }
 
@@ -44,18 +50,21 @@ func NewWsHub() *WsHub {
 func (h *WsHub) Broadcast(taskID string, msg WsMessage) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	conns, ok := h.conns[taskID]
-	if !ok {
-		log.Printf("ws broadcast: no clients for task_id=%s", taskID)
-		return
-	}
 	data, _ := json.Marshal(msg)
-	log.Printf("ws broadcast: task_id=%s, clients=%d, type=%s", taskID, len(conns), msg.Type)
-	for conn := range conns {
-		conn.SetWriteDeadline(time.Now().Add(writeWait))
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			log.Printf("ws write error: %v", err)
+	count := 0
+	for c := range h.clients {
+		if c.taskID == taskID {
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				log.Printf("ws write error: %v", err)
+			}
+			count++
 		}
+	}
+	if count == 0 {
+		log.Printf("ws broadcast: no clients for task_id=%s", taskID)
+	} else {
+		log.Printf("ws broadcast: task_id=%s, clients=%d, type=%s", taskID, count, msg.Type)
 	}
 }
 
@@ -64,14 +73,19 @@ func (h *WsHub) BroadcastAll(msg WsMessage) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	data, _ := json.Marshal(msg)
-	for _, conns := range h.conns {
-		for conn := range conns {
-			conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-				log.Printf("ws write error: %v", err)
-			}
+	for c := range h.clients {
+		c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+		if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			log.Printf("ws write error: %v", err)
 		}
 	}
+}
+
+// removeClient removes a client from the hub
+func (h *WsHub) removeClient(c *client) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.clients, c)
 }
 
 // HandleWS upgrades HTTP connection to WebSocket and registers it
@@ -95,11 +109,10 @@ func (h *WsHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 
+	c := &client{conn: conn, taskID: taskID}
+
 	h.mu.Lock()
-	if h.conns[taskID] == nil {
-		h.conns[taskID] = make(map[*websocket.Conn]bool)
-	}
-	h.conns[taskID][conn] = true
+	h.clients[c] = true
 	h.mu.Unlock()
 
 	log.Printf("ws client connected: task_id=%s", taskID)
@@ -116,6 +129,7 @@ func (h *WsHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 			case <-ticker.C:
 				conn.SetWriteDeadline(time.Now().Add(writeWait))
 				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					close(done)
 					return
 				}
 			case <-done:
@@ -125,22 +139,21 @@ func (h *WsHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Read pump - detects disconnection
-	defer func() {
-		close(done)
-		h.mu.Lock()
-		delete(h.conns[taskID], conn)
-		if len(h.conns[taskID]) == 0 {
-			delete(h.conns, taskID)
+	go func() {
+		defer close(done)
+		for {
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				break
+			}
 		}
-		h.mu.Unlock()
-		conn.Close()
-		log.Printf("ws client disconnected: task_id=%s", taskID)
 	}()
 
-	for {
-		_, _, err := conn.ReadMessage()
-		if err != nil {
-			break
-		}
-	}
+	// Wait for disconnection
+	<-done
+
+	// Cleanup
+	h.removeClient(c)
+	conn.Close()
+	log.Printf("ws client disconnected: task_id=%s", taskID)
 }
