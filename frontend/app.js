@@ -24,12 +24,17 @@ async function api(method, path, body) {
 // ── WebSocket ──
 let wsReconnectDelay = 1000;
 const WS_MAX_RECONNECT_DELAY = 30000;
+let wsShouldReconnect = true;
 
 function connectWS(taskId) {
+    // Prevent multiple simultaneous connections
     if (ws) {
+        wsShouldReconnect = false; // Disable reconnect for old connection
         ws.close();
         ws = null;
     }
+    wsShouldReconnect = true;
+
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = taskId
         ? proto + '//' + location.host + '/ws?task_id=' + taskId
@@ -39,27 +44,33 @@ function connectWS(taskId) {
         wsReconnectDelay = 1000; // Reset delay on successful connection
     };
     ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'log') {
-            appendLog(msg.data.text, msg.data.level);
-        } else if (msg.type === 'task-state') {
-            document.getElementById('btn-start').disabled = msg.data.running;
-            document.getElementById('btn-stop').disabled = !msg.data.running;
-            document.getElementById('status-text').textContent = msg.data.running ? '任务执行中...' : '就绪';
-            if (!msg.data.running) {
-                currentTaskId = null;
+        try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'log') {
+                appendLog(msg.data.text, msg.data.level);
+            } else if (msg.type === 'task-state') {
+                document.getElementById('btn-start').disabled = msg.data.running;
+                document.getElementById('btn-stop').disabled = !msg.data.running;
+                document.getElementById('status-text').textContent = msg.data.running ? '任务执行中...' : '就绪';
+                if (!msg.data.running) {
+                    currentTaskId = null;
+                }
+            } else if (msg.type === 'bank-stats') {
+                updateBankStatsDisplay(msg.data.total, msg.data.verified);
             }
-        } else if (msg.type === 'bank-stats') {
-            updateBankStatsDisplay(msg.data.total, msg.data.verified);
-        }
+        } catch (err) {}
     };
     ws.onclose = () => {
+        if (!wsShouldReconnect) return; // Skip reconnect if disabled
         // Exponential backoff for reconnection
-        setTimeout(() => {
-            if (currentTaskId) connectWS(currentTaskId);
-            else connectWS();
-        }, wsReconnectDelay);
+        const delay = wsReconnectDelay;
         wsReconnectDelay = Math.min(wsReconnectDelay * 2, WS_MAX_RECONNECT_DELAY);
+        setTimeout(() => {
+            if (wsShouldReconnect) {
+                if (currentTaskId) connectWS(currentTaskId);
+                else connectWS();
+            }
+        }, delay);
     };
     ws.onerror = () => {};
 }
