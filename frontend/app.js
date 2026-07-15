@@ -90,11 +90,13 @@ function showApp() {
     document.getElementById('app-main').style.display = 'flex';
     document.getElementById('user-info').textContent = user.name + ' (' + user.employee_id + ')';
 
-    // Show admin button if user is admin
+    // Show admin buttons if user is admin
     if (user.is_admin) {
         document.getElementById('btn-users').style.display = '';
+        document.getElementById('btn-debug').style.display = '';
     } else {
         document.getElementById('btn-users').style.display = 'none';
+        document.getElementById('btn-debug').style.display = 'none';
     }
 
     // Auto-fill user info
@@ -105,6 +107,34 @@ function showApp() {
     loadConfig();
     refreshBankStats();
     connectSSE();
+}
+
+// ── 存储调试 ──
+async function showDebugInfo() {
+    const resp = await api('GET', '/debug/storage');
+    if (resp.error) {
+        alert('获取失败: ' + resp.error);
+        return;
+    }
+    const data = resp.data;
+    let msg = '存储状态: ' + (data.use_redis ? 'Redis' : '文件') + '\n\n';
+
+    if (data.users) {
+        msg += '用户列表:\n';
+        data.users.forEach(u => {
+            msg += '  - ' + u.employee_id + ' / ' + u.name + (u.is_admin ? ' [管理员]' : '') + '\n';
+        });
+    }
+
+    if (data.bank_stats) {
+        msg += '\n题库: ' + data.bank_stats.total + ' 题, 已校验 ' + data.bank_stats.verified + '\n';
+    }
+
+    if (data.configs) {
+        msg += '\n配置 Keys: ' + data.configs.join(', ') + '\n';
+    }
+
+    alert(msg);
 }
 
 // ── 用户管理 ──
