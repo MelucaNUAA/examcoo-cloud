@@ -250,12 +250,17 @@ async function startTask() {
 }
 
 async function doStartTask(url, cfg, mode) {
+    // Generate a temporary task ID for WebSocket connection
+    const tempTaskId = 'task_' + Date.now();
+    connectWS(tempTaskId);
+
     const resp = await api('POST', '/task/start', { exam_url: url, config: cfg, mode: mode });
     if (resp.error) {
         setStatus(resp.error);
         return;
     }
     currentTaskId = resp.data.task_id;
+    // Reconnect with the real task ID
     connectWS(currentTaskId);
 }
 

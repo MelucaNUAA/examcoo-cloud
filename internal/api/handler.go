@@ -206,6 +206,8 @@ func (a *App) StartTask(w http.ResponseWriter, r *http.Request) {
 	a.sendTaskState(taskID, true)
 
 	go func() {
+		// Wait for client to connect WebSocket
+		time.Sleep(500 * time.Millisecond)
 		emit := a.emit(taskID)
 		if req.Mode == "answer" {
 			core.RunAutoExam(ctx, req.ExamURL, req.Config, emit)
