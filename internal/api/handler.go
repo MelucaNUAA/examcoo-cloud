@@ -112,6 +112,13 @@ func (a *App) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate user against whitelist
+	valid, msg := core.ValidateUser(req.EmployeeID, req.Name)
+	if !valid {
+		respondError(w, "登录失败: "+msg)
+		return
+	}
+
 	// Ensure user directory exists
 	if err := core.EnsureUserDir(req.EmployeeID); err != nil {
 		respondError(w, "创建用户目录失败: "+err.Error())
@@ -416,4 +423,26 @@ func (a *App) BatchUnverifyAll(w http.ResponseWriter, r *http.Request) {
 	}
 	a.sendBankStats()
 	respondOK(w, map[string]string{"message": "已清除全部校验状态"})
+}
+
+// ── GET /api/users ──
+
+func (a *App) GetUsers(w http.ResponseWriter, r *http.Request) {
+	users := core.LoadUsers()
+	respond(w, users)
+}
+
+// ── PUT /api/users ──
+
+func (a *App) SaveUsers(w http.ResponseWriter, r *http.Request) {
+	var users []core.UserEntry
+	if err := json.NewDecoder(r.Body).Decode(&users); err != nil {
+		respondError(w, "invalid request body")
+		return
+	}
+	if err := core.SaveUsers(users); err != nil {
+		respondError(w, "保存失败: "+err.Error())
+		return
+	}
+	respondOK(w, nil)
 }

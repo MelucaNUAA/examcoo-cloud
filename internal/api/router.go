@@ -15,6 +15,10 @@ func NewRouter(app *App, hub *SseHub) http.Handler {
 	// Auth
 	mux.HandleFunc("POST /api/login", app.Login)
 
+	// Users management
+	mux.HandleFunc("GET /api/users", app.GetUsers)
+	mux.HandleFunc("PUT /api/users", app.SaveUsers)
+
 	// Config
 	mux.HandleFunc("GET /api/config", app.GetConfig)
 	mux.HandleFunc("PUT /api/config", app.SaveConfig)
