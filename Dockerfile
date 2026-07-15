@@ -17,5 +17,4 @@ RUN mkdir -p /app/data
 ENV DATA_DIR=/app/data
 ENV PORT=8080
 EXPOSE 8080
-VOLUME ["/app/data"]
 CMD ["./server"]
