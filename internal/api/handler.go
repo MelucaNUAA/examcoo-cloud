@@ -212,6 +212,7 @@ func (a *App) TestAPI(w http.ResponseWriter, r *http.Request) {
 	// If API key is masked, load real key from config
 	if strings.Contains(req.APIKey, "****") {
 		cfg := core.LoadUserConfig(employeeID)
+		log.Printf("TestAPI: Loaded API Key for %s, length=%d, first4=%s", employeeID, len(cfg.APIKey), cfg.APIKey[:min(4, len(cfg.APIKey))])
 		req.APIKey = cfg.APIKey
 	}
 
@@ -221,6 +222,13 @@ func (a *App) TestAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondOK(w, map[string]interface{}{"latency": latency.Milliseconds()})
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // ── POST /api/fetch-models ──
