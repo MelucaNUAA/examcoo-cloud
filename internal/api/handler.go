@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,11 +19,11 @@ type Task struct {
 	ID     string
 	Cancel context.CancelFunc
 	Status string // "running" / "finished" / "error"
+	UserID string // employee_id
 }
 
-// App is the HTTP API handler, equivalent to the Wails App struct
+// App is the HTTP API handler
 type App struct {
-	cfg          core.Config
 	mu           sync.Mutex
 	tasks        map[string]*Task
 	cachedModels []string
@@ -31,12 +32,21 @@ type App struct {
 
 // NewApp creates a new App instance
 func NewApp(hub *SseHub) *App {
-	cfg := core.LoadConfig()
 	return &App{
-		cfg:   cfg,
 		tasks: make(map[string]*Task),
 		hub:   hub,
 	}
+}
+
+// getEmployeeID extracts employee_id from request header
+func getEmployeeID(r *http.Request) string {
+	return r.Header.Get("X-Employee-ID")
+}
+
+// generateToken generates a simple token
+func generateToken(employeeID, name string) string {
+	h := md5.Sum([]byte(employeeID + ":" + name + ":examcoo"))
+	return fmt.Sprintf("%x", h)
 }
 
 // emit creates an Emit callback that broadcasts via SSE
@@ -86,10 +96,45 @@ func respondOK(w http.ResponseWriter, data interface{}) {
 	}
 }
 
+// ── POST /api/login ──
+
+func (a *App) Login(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		EmployeeID string `json:"employee_id"`
+		Name       string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, "invalid request body")
+		return
+	}
+	if req.EmployeeID == "" || req.Name == "" {
+		respondError(w, "请填写员工号和姓名")
+		return
+	}
+
+	// Ensure user directory exists
+	if err := core.EnsureUserDir(req.EmployeeID); err != nil {
+		respondError(w, "创建用户目录失败: "+err.Error())
+		return
+	}
+
+	token := generateToken(req.EmployeeID, req.Name)
+	respondOK(w, map[string]string{
+		"token":       token,
+		"employee_id": req.EmployeeID,
+		"name":        req.Name,
+	})
+}
+
 // ── GET /api/config ──
 
 func (a *App) GetConfig(w http.ResponseWriter, r *http.Request) {
-	cfg := a.cfg
+	employeeID := getEmployeeID(r)
+	if employeeID == "" {
+		respondError(w, "未登录")
+		return
+	}
+	cfg := core.LoadUserConfig(employeeID)
 	// Mask API key for security
 	if len(cfg.APIKey) > 4 {
 		cfg.APIKey = cfg.APIKey[:4] + "****"
@@ -100,13 +145,17 @@ func (a *App) GetConfig(w http.ResponseWriter, r *http.Request) {
 // ── PUT /api/config ──
 
 func (a *App) SaveConfig(w http.ResponseWriter, r *http.Request) {
+	employeeID := getEmployeeID(r)
+	if employeeID == "" {
+		respondError(w, "未登录")
+		return
+	}
 	var cfg core.Config
 	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
 		respondError(w, "invalid request body")
 		return
 	}
-	a.cfg = cfg
-	if err := core.SaveConfig(cfg); err != nil {
+	if err := core.SaveUserConfig(employeeID, cfg); err != nil {
 		respondError(w, "save failed: "+err.Error())
 		return
 	}
@@ -168,6 +217,12 @@ func (a *App) GetCachedModels(w http.ResponseWriter, r *http.Request) {
 // ── POST /api/task/start ──
 
 func (a *App) StartTask(w http.ResponseWriter, r *http.Request) {
+	employeeID := getEmployeeID(r)
+	if employeeID == "" {
+		respondError(w, "未登录")
+		return
+	}
+
 	var req struct {
 		ExamURL string      `json:"exam_url"`
 		Config  core.Config `json:"config"`
@@ -191,14 +246,14 @@ func (a *App) StartTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.cfg = req.Config
-	_ = core.SaveConfig(req.Config)
+	// Save user config
+	_ = core.SaveUserConfig(employeeID, req.Config)
 
 	// Generate task ID
 	taskID := fmt.Sprintf("%d", time.Now().UnixNano())
 
 	ctx, cancel := context.WithCancel(context.Background())
-	task := &Task{ID: taskID, Cancel: cancel, Status: "running"}
+	task := &Task{ID: taskID, Cancel: cancel, Status: "running", UserID: employeeID}
 	a.mu.Lock()
 	a.tasks[taskID] = task
 	a.mu.Unlock()
@@ -206,7 +261,7 @@ func (a *App) StartTask(w http.ResponseWriter, r *http.Request) {
 	a.sendTaskState(taskID, true)
 
 	go func() {
-		// Wait for client to connect WebSocket
+		// Wait for client to connect SSE
 		time.Sleep(500 * time.Millisecond)
 		emit := a.emit(taskID)
 		if req.Mode == "answer" {
@@ -258,6 +313,7 @@ func (a *App) GetTasks(w http.ResponseWriter, r *http.Request) {
 		taskList = append(taskList, map[string]string{
 			"id":     t.ID,
 			"status": t.Status,
+			"user_id": t.UserID,
 		})
 	}
 	respond(w, taskList)
@@ -310,7 +366,6 @@ func (a *App) SaveBankEntry(w http.ResponseWriter, r *http.Request) {
 // ── DELETE /api/bank/entry/{key} ──
 
 func (a *App) DeleteBankEntry(w http.ResponseWriter, r *http.Request) {
-	// Extract key from path: /api/bank/entry/{key}
 	key := strings.TrimPrefix(r.URL.Path, "/api/bank/entry/")
 	if key == "" {
 		respondError(w, "missing key")

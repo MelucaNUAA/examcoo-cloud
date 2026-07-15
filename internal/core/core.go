@@ -120,8 +120,60 @@ func dataDir() string {
 	return "."
 }
 
+// userDir returns the user-specific directory
+func userDir(employeeID string) string {
+	return filepath.Join(dataDir(), "users", employeeID)
+}
+
 func configPath() string { return filepath.Join(dataDir(), "config.json") }
 func bankPath() string   { return filepath.Join(dataDir(), "answer_bank.json") }
+
+func UserConfigPath(employeeID string) string {
+	return filepath.Join(userDir(employeeID), "config.json")
+}
+
+// EnsureUserDir creates user directory if not exists
+func EnsureUserDir(employeeID string) error {
+	return os.MkdirAll(userDir(employeeID), 0755)
+}
+
+// LoadUserConfig loads user-specific config
+func LoadUserConfig(employeeID string) Config {
+	cfg := DefaultConfig
+	data, err := os.ReadFile(UserConfigPath(employeeID))
+	if err != nil {
+		return cfg
+	}
+	_ = json.Unmarshal(data, &cfg)
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = DefaultConfig.BaseURL
+	}
+	if cfg.RequestDelay == 0 {
+		cfg.RequestDelay = 1.0
+	}
+	if cfg.VoteRounds == 0 {
+		cfg.VoteRounds = 3
+	}
+	if cfg.LoopCount == 0 {
+		cfg.LoopCount = 1
+	}
+	if cfg.SubmitDelay == 0 {
+		cfg.SubmitDelay = 3.0
+	}
+	if cfg.TargetScore == 0 {
+		cfg.TargetScore = 100
+	}
+	return cfg
+}
+
+// SaveUserConfig saves user-specific config
+func SaveUserConfig(employeeID string, cfg Config) error {
+	if err := EnsureUserDir(employeeID); err != nil {
+		return err
+	}
+	data, _ := json.MarshalIndent(cfg, "", "  ")
+	return os.WriteFile(UserConfigPath(employeeID), data, 0644)
+}
 
 func LoadConfig() Config {
 	cfg := DefaultConfig

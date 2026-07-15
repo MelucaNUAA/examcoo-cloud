@@ -8,17 +8,91 @@ let bankViewRows = [];
 let eventSource = null;
 let currentTaskId = null;
 
+// ── 用户认证 ──
+function getUser() {
+    const data = localStorage.getItem('examcoo_user');
+    return data ? JSON.parse(data) : null;
+}
+
+function setUser(user) {
+    localStorage.setItem('examcoo_user', JSON.stringify(user));
+}
+
+function clearUser() {
+    localStorage.removeItem('examcoo_user');
+}
+
+function getEmployeeID() {
+    const user = getUser();
+    return user ? user.employee_id : '';
+}
+
 // ── API 工具函数 ──
 async function api(method, path, body) {
     const opts = {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Employee-ID': getEmployeeID(),
+        },
     };
     if (body !== undefined) {
         opts.body = JSON.stringify(body);
     }
     const resp = await fetch('/api' + path, opts);
     return resp.json();
+}
+
+// ── 登录 ──
+async function doLogin() {
+    const eid = document.getElementById('login-eid').value.trim();
+    const name = document.getElementById('login-name').value.trim();
+    if (!eid || !name) {
+        document.getElementById('login-error').textContent = '请填写员工号和姓名';
+        return;
+    }
+
+    const resp = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: eid, name: name }),
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+        document.getElementById('login-error').textContent = data.error;
+        return;
+    }
+
+    setUser(data.data);
+    showApp();
+}
+
+function logout() {
+    clearUser();
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+    document.getElementById('login-page').style.display = 'flex';
+    document.getElementById('app-main').style.display = 'none';
+}
+
+function showApp() {
+    const user = getUser();
+    if (!user) {
+        document.getElementById('login-page').style.display = 'flex';
+        document.getElementById('app-main').style.display = 'none';
+        return;
+    }
+
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('app-main').style.display = 'flex';
+    document.getElementById('user-info').textContent = user.name + ' (' + user.employee_id + ')';
+
+    loadConfig();
+    refreshBankStats();
+    connectSSE();
 }
 
 // ── SSE (Server-Sent Events) ──
@@ -55,17 +129,7 @@ function connectSSE(taskId) {
 
 // ── 初始化 ──
 window.addEventListener('DOMContentLoaded', () => {
-    loadConfig();
-    refreshBankStats();
-    connectSSE();
-
-    // 移动端默认收起 AI 配置区域
-    if (window.innerWidth <= 768) {
-        const section = document.getElementById('ai-config-section');
-        if (section) {
-            section.classList.add('collapsed');
-        }
-    }
+    showApp();
 });
 
 // ── 折叠功能 ──
