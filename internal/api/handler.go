@@ -113,9 +113,9 @@ func (a *App) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate user against whitelist
-	valid, msg := core.ValidateUser(req.EmployeeID, req.Name)
+	valid, user := core.ValidateUser(req.EmployeeID, req.Name)
 	if !valid {
-		respondError(w, "登录失败: "+msg)
+		respondError(w, "登录失败: 员工号或姓名错误")
 		return
 	}
 
@@ -126,10 +126,12 @@ func (a *App) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := generateToken(req.EmployeeID, req.Name)
-	respondOK(w, map[string]string{
+	respondOK(w, map[string]interface{}{
 		"token":       token,
-		"employee_id": req.EmployeeID,
-		"name":        req.Name,
+		"employee_id": user.EmployeeID,
+		"name":        user.Name,
+		"department":  user.Department,
+		"is_admin":    user.IsAdmin,
 	})
 }
 
@@ -435,6 +437,16 @@ func (a *App) GetUsers(w http.ResponseWriter, r *http.Request) {
 // ── PUT /api/users ──
 
 func (a *App) SaveUsers(w http.ResponseWriter, r *http.Request) {
+	employeeID := getEmployeeID(r)
+	if employeeID == "" {
+		respondError(w, "未登录")
+		return
+	}
+	if !core.IsAdmin(employeeID) {
+		respondError(w, "权限不足: 只有管理员可以维护用户名单")
+		return
+	}
+
 	var users []core.UserEntry
 	if err := json.NewDecoder(r.Body).Decode(&users); err != nil {
 		respondError(w, "invalid request body")

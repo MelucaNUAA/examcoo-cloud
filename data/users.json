@@ -2,6 +2,7 @@
   {
     "employee_id": "admin",
     "name": "管理员",
-    "department": "管理部"
+    "department": "管理部",
+    "is_admin": true
   }
 ]

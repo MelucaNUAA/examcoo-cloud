@@ -90,6 +90,11 @@ function showApp() {
     document.getElementById('app-main').style.display = 'flex';
     document.getElementById('user-info').textContent = user.name + ' (' + user.employee_id + ')';
 
+    // Auto-fill user info
+    document.getElementById('user-name').value = user.name || '';
+    document.getElementById('user-eid').value = user.employee_id || '';
+    document.getElementById('user-dept').value = user.department || '';
+
     loadConfig();
     refreshBankStats();
     connectSSE();
@@ -144,9 +149,7 @@ function toggleAISettings() {
 async function loadConfig() {
     const resp = await api('GET', '/config');
     const cfg = resp.data || resp;
-    document.getElementById('user-name').value = cfg.name || '';
-    document.getElementById('user-eid').value = cfg.employee_id || '';
-    document.getElementById('user-dept').value = cfg.department || '';
+    // Don't override user info fields (already filled from login)
     document.getElementById('base-url').value = cfg.base_url || '';
     document.getElementById('proxy-url').value = cfg.proxy_url || '';
     document.getElementById('api-key').value = cfg.api_key || '';

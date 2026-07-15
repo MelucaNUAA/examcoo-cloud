@@ -11,6 +11,7 @@ type UserEntry struct {
 	EmployeeID string `json:"employee_id"`
 	Name       string `json:"name"`
 	Department string `json:"department,omitempty"`
+	IsAdmin    bool   `json:"is_admin,omitempty"`
 }
 
 // usersPath returns the path to users.json
@@ -36,28 +37,28 @@ func SaveUsers(users []UserEntry) error {
 }
 
 // ValidateUser checks if employee_id and name match the whitelist
-func ValidateUser(employeeID, name string) (bool, string) {
+func ValidateUser(employeeID, name string) (bool, *UserEntry) {
 	users := LoadUsers()
 	if len(users) == 0 {
 		// No whitelist configured, allow all
-		return true, ""
+		return true, &UserEntry{EmployeeID: employeeID, Name: name}
 	}
-	for _, u := range users {
+	for i, u := range users {
 		if u.EmployeeID == employeeID {
 			if u.Name == name {
-				return true, u.Department
+				return true, &users[i]
 			}
-			return false, "姓名不匹配"
+			return false, nil
 		}
 	}
-	return false, "员工号不在名单中"
+	return false, nil
 }
 
-// UserExists checks if employee_id exists in whitelist
-func UserExists(employeeID string) bool {
+// IsAdmin checks if employee_id is an admin
+func IsAdmin(employeeID string) bool {
 	users := LoadUsers()
 	for _, u := range users {
-		if u.EmployeeID == employeeID {
+		if u.EmployeeID == employeeID && u.IsAdmin {
 			return true
 		}
 	}
