@@ -192,6 +192,12 @@ func (a *App) SaveConfig(w http.ResponseWriter, r *http.Request) {
 // ── POST /api/test-api ──
 
 func (a *App) TestAPI(w http.ResponseWriter, r *http.Request) {
+	employeeID := getEmployeeID(r)
+	if employeeID == "" {
+		respondError(w, "未登录")
+		return
+	}
+
 	var req struct {
 		BaseURL  string `json:"base_url"`
 		APIKey   string `json:"api_key"`
@@ -202,6 +208,13 @@ func (a *App) TestAPI(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "invalid request body")
 		return
 	}
+
+	// If API key is masked, load real key from config
+	if strings.Contains(req.APIKey, "****") {
+		cfg := core.LoadUserConfig(employeeID)
+		req.APIKey = cfg.APIKey
+	}
+
 	latency, err := core.TestAPIKey(req.BaseURL, req.APIKey, req.Model, req.ProxyURL)
 	if err != nil {
 		respondError(w, err.Error())
@@ -213,6 +226,12 @@ func (a *App) TestAPI(w http.ResponseWriter, r *http.Request) {
 // ── POST /api/fetch-models ──
 
 func (a *App) FetchModels(w http.ResponseWriter, r *http.Request) {
+	employeeID := getEmployeeID(r)
+	if employeeID == "" {
+		respondError(w, "未登录")
+		return
+	}
+
 	var req struct {
 		BaseURL  string `json:"base_url"`
 		APIKey   string `json:"api_key"`
@@ -222,6 +241,13 @@ func (a *App) FetchModels(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "invalid request body")
 		return
 	}
+
+	// If API key is masked, load real key from config
+	if strings.Contains(req.APIKey, "****") {
+		cfg := core.LoadUserConfig(employeeID)
+		req.APIKey = cfg.APIKey
+	}
+
 	models, err := core.FetchModels(req.BaseURL, req.APIKey, req.ProxyURL)
 	if err != nil {
 		respondError(w, err.Error())
