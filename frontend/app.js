@@ -94,9 +94,11 @@ function showApp() {
     if (user.is_admin) {
         document.getElementById('btn-users').style.display = '';
         document.getElementById('btn-debug').style.display = '';
+        document.getElementById('btn-import').style.display = '';
     } else {
         document.getElementById('btn-users').style.display = 'none';
         document.getElementById('btn-debug').style.display = 'none';
+        document.getElementById('btn-import').style.display = 'none';
     }
 
     // Auto-fill user info
@@ -135,6 +137,35 @@ async function showDebugInfo() {
     }
 
     alert(msg);
+}
+
+// ── 题库导入 ──
+async function importBank(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const bank = JSON.parse(e.target.result);
+            if (typeof bank !== 'object' || bank === null) {
+                alert('文件格式错误: 必须是 JSON 对象');
+                return;
+            }
+
+            const resp = await api('POST', '/bank/import', { bank: bank });
+            if (resp.error) {
+                alert('导入失败: ' + resp.error);
+                return;
+            }
+
+            alert('导入成功: 新增 ' + resp.data.imported + ' 题，题库共 ' + resp.data.total + ' 题');
+            refreshBankStats();
+        } catch (err) {
+            alert('解析失败: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+    input.value = ''; // Reset file input
 }
 
 // ── 用户管理 ──

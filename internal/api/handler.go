@@ -505,3 +505,48 @@ func (a *App) DebugStorage(w http.ResponseWriter, r *http.Request) {
 
 	respond(w, result)
 }
+
+// ── POST /api/bank/import ──
+
+func (a *App) ImportBank(w http.ResponseWriter, r *http.Request) {
+	employeeID := getEmployeeID(r)
+	if employeeID == "" {
+		respondError(w, "未登录")
+		return
+	}
+	if !core.IsAdmin(employeeID) {
+		respondError(w, "权限不足: 只有管理员可以导入题库")
+		return
+	}
+
+	var req struct {
+		Bank map[string]core.BankEntry `json:"bank"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, "invalid request body")
+		return
+	}
+
+	if len(req.Bank) == 0 {
+		respondError(w, "题库数据为空")
+		return
+	}
+
+	// Merge with existing bank
+	existing := core.LoadBankForUpdate()
+	for k, v := range req.Bank {
+		existing[k] = v
+	}
+
+	if err := core.SaveBankForUpdate(existing); err != nil {
+		respondError(w, "保存失败: "+err.Error())
+		return
+	}
+
+	a.sendBankStats()
+	respondOK(w, map[string]interface{}{
+		"message": "导入成功",
+		"imported": len(req.Bank),
+		"total": len(existing),
+	})
+}

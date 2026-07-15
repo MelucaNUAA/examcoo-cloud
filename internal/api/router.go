@@ -44,6 +44,9 @@ func NewRouter(app *App, hub *SseHub) http.Handler {
 	// Debug (admin only)
 	mux.HandleFunc("GET /api/debug/storage", app.DebugStorage)
 
+	// Bank import (admin only)
+	mux.HandleFunc("POST /api/bank/import", app.ImportBank)
+
 	// Static files - serve frontend
 	frontendDir := "frontend"
 	if d := os.Getenv("FRONTEND_DIR"); d != "" {
