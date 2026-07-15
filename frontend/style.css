@@ -105,6 +105,14 @@ body {
     color: #c7d2fe;
 }
 
+/* ── 主应用布局 ── */
+#app-main {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
 /* 现代化滚动条 */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
