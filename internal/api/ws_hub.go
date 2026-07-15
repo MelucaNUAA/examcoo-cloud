@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -12,6 +13,13 @@ import (
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
+
+const (
+	writeWait      = 10 * time.Second
+	pongWait       = 60 * time.Second
+	pingPeriod     = 50 * time.Second // Must be less than pongWait
+	maxMessageSize = 512
+)
 
 // WsMessage is the message format sent to clients
 type WsMessage struct {
@@ -42,19 +50,21 @@ func (h *WsHub) Broadcast(taskID string, msg WsMessage) {
 	}
 	data, _ := json.Marshal(msg)
 	for conn := range conns {
+		conn.SetWriteDeadline(time.Now().Add(writeWait))
 		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
 			log.Printf("ws write error: %v", err)
 		}
 	}
 }
 
-// BroadcastAll sends a message to all connected clients (for non-task events like bank-stats)
+// BroadcastAll sends a message to all connected clients
 func (h *WsHub) BroadcastAll(msg WsMessage) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	data, _ := json.Marshal(msg)
 	for _, conns := range h.conns {
 		for conn := range conns {
+			conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
 				log.Printf("ws write error: %v", err)
 			}
@@ -75,6 +85,14 @@ func (h *WsHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set connection parameters
+	conn.SetReadLimit(maxMessageSize)
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
 	h.mu.Lock()
 	if h.conns[taskID] == nil {
 		h.conns[taskID] = make(map[*websocket.Conn]bool)
@@ -84,8 +102,29 @@ func (h *WsHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("ws client connected: task_id=%s", taskID)
 
-	// Read loop to detect disconnection
+	// Start ping ticker
+	ticker := time.NewTicker(pingPeriod)
+	done := make(chan struct{})
+
+	// Write pump - sends pings
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				conn.SetWriteDeadline(time.Now().Add(writeWait))
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	// Read pump - detects disconnection
 	defer func() {
+		close(done)
 		h.mu.Lock()
 		delete(h.conns[taskID], conn)
 		if len(h.conns[taskID]) == 0 {

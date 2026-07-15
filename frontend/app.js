@@ -22,6 +22,9 @@ async function api(method, path, body) {
 }
 
 // ── WebSocket ──
+let wsReconnectDelay = 1000;
+const WS_MAX_RECONNECT_DELAY = 30000;
+
 function connectWS(taskId) {
     if (ws) {
         ws.close();
@@ -32,7 +35,9 @@ function connectWS(taskId) {
         ? proto + '//' + location.host + '/ws?task_id=' + taskId
         : proto + '//' + location.host + '/ws?task_id=_global';
     ws = new WebSocket(url);
-    ws.onopen = () => {};
+    ws.onopen = () => {
+        wsReconnectDelay = 1000; // Reset delay on successful connection
+    };
     ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === 'log') {
@@ -49,10 +54,12 @@ function connectWS(taskId) {
         }
     };
     ws.onclose = () => {
+        // Exponential backoff for reconnection
         setTimeout(() => {
             if (currentTaskId) connectWS(currentTaskId);
             else connectWS();
-        }, 3000);
+        }, wsReconnectDelay);
+        wsReconnectDelay = Math.min(wsReconnectDelay * 2, WS_MAX_RECONNECT_DELAY);
     };
     ws.onerror = () => {};
 }
