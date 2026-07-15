@@ -16,6 +16,9 @@ func main() {
 		port = "8080"
 	}
 
+	// Initialize encryption
+	core.InitEncryption()
+
 	// Initialize storage (Redis or file)
 	core.InitStorage()
 

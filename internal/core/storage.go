@@ -80,11 +80,29 @@ func LoadUserConfigFromRedis(employeeID string) Config {
 		return cfg
 	}
 	_ = json.Unmarshal(data, &cfg)
+
+	// Decrypt API Key
+	if cfg.APIKey != "" {
+		decrypted, err := Decrypt(cfg.APIKey)
+		if err == nil {
+			cfg.APIKey = decrypted
+		}
+	}
+
 	return cfg
 }
 
 // SaveUserConfigToRedis saves user config to Redis
 func SaveUserConfigToRedis(employeeID string, cfg Config) error {
+	// Encrypt API Key before saving
+	if cfg.APIKey != "" {
+		encrypted, err := Encrypt(cfg.APIKey)
+		if err != nil {
+			return err
+		}
+		cfg.APIKey = encrypted
+	}
+
 	data, _ := json.Marshal(cfg)
 	return rdb.Set(ctx, redisConfigKey(employeeID), data, 0).Err()
 }
