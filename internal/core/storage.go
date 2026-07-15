@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -149,13 +150,30 @@ func SaveUsersToRedis(users []UserEntry) error {
 	return rdb.Set(ctx, redisUsersKey, data, 0).Err()
 }
 
-// ListRedisConfigs lists all config keys in Redis
-func ListRedisConfigs() []string {
+// ListRedisConfigs lists all config keys in Redis with details
+func ListRedisConfigs() []map[string]interface{} {
 	keys, err := rdb.Keys(ctx, "config:*").Result()
 	if err != nil {
 		return nil
 	}
-	return keys
+
+	var configs []map[string]interface{}
+	for _, key := range keys {
+		employeeID := strings.TrimPrefix(key, "config:")
+		cfg := LoadUserConfigFromRedis(employeeID)
+		configs = append(configs, map[string]interface{}{
+			"employee_id": employeeID,
+			"name":        cfg.Name,
+			"department":  cfg.Department,
+			"base_url":    cfg.BaseURL,
+			"model":       cfg.Model,
+			"has_api_key": cfg.APIKey != "",
+			"proxy_url":   cfg.ProxyURL,
+			"vote_rounds": cfg.VoteRounds,
+			"loop_count":  cfg.LoopCount,
+		})
+	}
+	return configs
 }
 
 // ── Generic helpers ──
