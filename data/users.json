@@ -1,12 +1,7 @@
 [
   {
-    "employee_id": "001",
-    "name": "张三",
-    "department": "技术部"
-  },
-  {
-    "employee_id": "002",
-    "name": "李四",
-    "department": "安全部"
+    "employee_id": "admin",
+    "name": "管理员",
+    "department": "管理部"
   }
 ]
