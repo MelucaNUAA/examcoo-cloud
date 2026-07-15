@@ -289,7 +289,16 @@
                 <button class="close-btn" onclick="closeModal('modal-users')">&times;</button>
             </div>
             <div class="modal-body" style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
-                <div style="font-size: 12px; color: #64748b;">添加、编辑或删除允许登录的用户</div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-size: 12px; color: #64748b;">添加、编辑或删除允许登录的用户</div>
+                    <div style="display:flex; gap:8px;">
+                        <label class="btn btn-sm" style="cursor:pointer;">
+                            📤 批量导入
+                            <input type="file" accept=".json,.csv" style="display:none;" onchange="importUsers(this)">
+                        </label>
+                        <button class="btn btn-sm" onclick="exportUsers()">📥 导出</button>
+                    </div>
+                </div>
                 <div id="user-list" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px;"></div>
                 <div style="border-top: 1px solid var(--border); padding-top: 12px;">
                     <div style="font-weight: 600; margin-bottom: 8px; color: #4f46e5;">── 添加/编辑用户 ──</div>

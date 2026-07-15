@@ -223,6 +223,103 @@ function clearUserForm() {
     document.getElementById('user-edit-status').textContent = '';
 }
 
+// ── 批量导入导出 ──
+async function importUsers(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            let newUsers = [];
+            if (file.name.endsWith('.json')) {
+                newUsers = JSON.parse(e.target.result);
+            } else if (file.name.endsWith('.csv')) {
+                newUsers = parseCSV(e.target.result);
+            }
+
+            if (!Array.isArray(newUsers) || newUsers.length === 0) {
+                alert('文件格式错误或无数据');
+                return;
+            }
+
+            // Validate format
+            for (const u of newUsers) {
+                if (!u.employee_id || !u.name) {
+                    alert('数据格式错误: 每条记录必须包含 employee_id 和 name');
+                    return;
+                }
+            }
+
+            const resp = await api('GET', '/users');
+            let existingUsers = resp.data || resp || [];
+
+            // Merge: skip duplicates, add new
+            let added = 0;
+            for (const u of newUsers) {
+                if (!existingUsers.some(eu => eu.employee_id === u.employee_id)) {
+                    existingUsers.push({
+                        employee_id: u.employee_id,
+                        name: u.name,
+                        department: u.department || '',
+                        is_admin: u.is_admin || false
+                    });
+                    added++;
+                }
+            }
+
+            const saveResp = await api('PUT', '/users', existingUsers);
+            if (saveResp.error) {
+                alert('保存失败: ' + saveResp.error);
+                return;
+            }
+
+            document.getElementById('user-edit-status').textContent = '导入成功: 新增 ' + added + ' 人，跳过 ' + (newUsers.length - added) + ' 人';
+            document.getElementById('user-edit-status').style.color = '#10b981';
+            await loadUserList();
+        } catch (err) {
+            alert('解析失败: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+    input.value = ''; // Reset file input
+}
+
+function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const users = [];
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        if (values.length < 2) continue;
+        const user = {};
+        headers.forEach((h, idx) => {
+            if (h === 'employee_id' || h === '员工号' || h === '工号') user.employee_id = values[idx];
+            else if (h === 'name' || h === '姓名') user.name = values[idx];
+            else if (h === 'department' || h === '部门') user.department = values[idx];
+            else if (h === 'is_admin' || h === '管理员') user.is_admin = values[idx] === '是' || values[idx] === 'true';
+        });
+        if (user.employee_id && user.name) users.push(user);
+    }
+    return users;
+}
+
+async function exportUsers() {
+    const resp = await api('GET', '/users');
+    const users = resp.data || resp || [];
+    if (users.length === 0) {
+        alert('暂无用户数据');
+        return;
+    }
+    const blob = new Blob([JSON.stringify(users, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'users.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
 // ── SSE (Server-Sent Events) ──
 function connectSSE(taskId) {
     if (eventSource) {
