@@ -149,6 +149,15 @@ func SaveUsersToRedis(users []UserEntry) error {
 	return rdb.Set(ctx, redisUsersKey, data, 0).Err()
 }
 
+// ListRedisConfigs lists all config keys in Redis
+func ListRedisConfigs() []string {
+	keys, err := rdb.Keys(ctx, "config:*").Result()
+	if err != nil {
+		return nil
+	}
+	return keys
+}
+
 // ── Generic helpers ──
 
 // CacheSet sets a key-value pair with expiration

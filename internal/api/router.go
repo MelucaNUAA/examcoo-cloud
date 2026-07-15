@@ -41,6 +41,9 @@ func NewRouter(app *App, hub *SseHub) http.Handler {
 	mux.HandleFunc("POST /api/bank/batch-verify", app.BatchVerifyAll)
 	mux.HandleFunc("POST /api/bank/batch-unverify", app.BatchUnverifyAll)
 
+	// Debug (admin only)
+	mux.HandleFunc("GET /api/debug/storage", app.DebugStorage)
+
 	// Static files - serve frontend
 	frontendDir := "frontend"
 	if d := os.Getenv("FRONTEND_DIR"); d != "" {

@@ -469,3 +469,39 @@ func (a *App) SaveUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	respondOK(w, nil)
 }
+
+// ── GET /api/debug/storage ──
+
+func (a *App) DebugStorage(w http.ResponseWriter, r *http.Request) {
+	employeeID := getEmployeeID(r)
+	if employeeID == "" {
+		respondError(w, "未登录")
+		return
+	}
+	if !core.IsAdmin(employeeID) {
+		respondError(w, "权限不足")
+		return
+	}
+
+	result := map[string]interface{}{
+		"use_redis": core.UseRedis(),
+	}
+
+	if core.UseRedis() {
+		// List all config keys
+		configs := core.ListRedisConfigs()
+		result["configs"] = configs
+
+		// Get users list
+		users := core.LoadUsers()
+		result["users"] = users
+
+		// Get bank stats
+		total, verified := core.BankStats()
+		result["bank_stats"] = map[string]int{"total": total, "verified": verified}
+	} else {
+		result["message"] = "使用文件存储，无 Redis 数据"
+	}
+
+	respond(w, result)
+}
