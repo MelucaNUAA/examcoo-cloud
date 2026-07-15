@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"examcoo-cloud/internal/api"
+	"examcoo-cloud/internal/core"
 )
 
 func main() {
@@ -14,6 +15,9 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+
+	// Initialize storage (Redis or file)
+	core.InitStorage()
 
 	hub := api.NewSseHub()
 	app := api.NewApp(hub)

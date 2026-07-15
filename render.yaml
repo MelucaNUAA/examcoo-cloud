@@ -11,7 +11,5 @@ services:
         value: "8080"
       - key: DATA_DIR
         value: /app/data
-    disk:
-      name: examcoo-data
-      mountPath: /app/data
-      sizeGB: 1
+      - key: REDIS_URL
+        sync: false

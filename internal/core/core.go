@@ -139,12 +139,37 @@ func EnsureUserDir(employeeID string) error {
 
 // LoadUserConfig loads user-specific config
 func LoadUserConfig(employeeID string) Config {
+	if UseRedis() {
+		cfg := LoadUserConfigFromRedis(employeeID)
+		applyConfigDefaults(&cfg)
+		return cfg
+	}
+
 	cfg := DefaultConfig
 	data, err := os.ReadFile(UserConfigPath(employeeID))
 	if err != nil {
 		return cfg
 	}
 	_ = json.Unmarshal(data, &cfg)
+	applyConfigDefaults(&cfg)
+	return cfg
+}
+
+// SaveUserConfig saves user-specific config
+func SaveUserConfig(employeeID string, cfg Config) error {
+	if UseRedis() {
+		return SaveUserConfigToRedis(employeeID, cfg)
+	}
+
+	if err := EnsureUserDir(employeeID); err != nil {
+		return err
+	}
+	data, _ := json.MarshalIndent(cfg, "", "  ")
+	return os.WriteFile(UserConfigPath(employeeID), data, 0644)
+}
+
+// applyConfigDefaults applies default values to config
+func applyConfigDefaults(cfg *Config) {
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = DefaultConfig.BaseURL
 	}
@@ -163,16 +188,6 @@ func LoadUserConfig(employeeID string) Config {
 	if cfg.TargetScore == 0 {
 		cfg.TargetScore = 100
 	}
-	return cfg
-}
-
-// SaveUserConfig saves user-specific config
-func SaveUserConfig(employeeID string, cfg Config) error {
-	if err := EnsureUserDir(employeeID); err != nil {
-		return err
-	}
-	data, _ := json.MarshalIndent(cfg, "", "  ")
-	return os.WriteFile(UserConfigPath(employeeID), data, 0644)
 }
 
 func LoadConfig() Config {
@@ -239,6 +254,10 @@ func loadBank() map[string]BankEntry {
 }
 
 func loadBankUnlocked() map[string]BankEntry {
+	if UseRedis() {
+		return LoadBankFromRedis()
+	}
+
 	bank := map[string]BankEntry{}
 	data, err := os.ReadFile(bankPath())
 	if err != nil {
@@ -255,6 +274,10 @@ func saveBank(bank map[string]BankEntry) error {
 }
 
 func saveBankUnlocked(bank map[string]BankEntry) error {
+	if UseRedis() {
+		return SaveBankToRedis(bank)
+	}
+
 	data, _ := json.MarshalIndent(bank, "", "  ")
 	return os.WriteFile(bankPath(), data, 0644)
 }

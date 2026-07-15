@@ -21,6 +21,10 @@ func usersPath() string {
 
 // LoadUsers loads the user whitelist
 func LoadUsers() []UserEntry {
+	if UseRedis() {
+		return LoadUsersFromRedis()
+	}
+
 	data, err := os.ReadFile(usersPath())
 	if err != nil {
 		return nil
@@ -32,6 +36,10 @@ func LoadUsers() []UserEntry {
 
 // SaveUsers saves the user whitelist
 func SaveUsers(users []UserEntry) error {
+	if UseRedis() {
+		return SaveUsersToRedis(users)
+	}
+
 	data, _ := json.MarshalIndent(users, "", "  ")
 	return os.WriteFile(usersPath(), data, 0644)
 }
