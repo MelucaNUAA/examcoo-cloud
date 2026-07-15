@@ -46,9 +46,11 @@ func (h *WsHub) Broadcast(taskID string, msg WsMessage) {
 	defer h.mu.RUnlock()
 	conns, ok := h.conns[taskID]
 	if !ok {
+		log.Printf("ws broadcast: no clients for task_id=%s", taskID)
 		return
 	}
 	data, _ := json.Marshal(msg)
+	log.Printf("ws broadcast: task_id=%s, clients=%d, type=%s", taskID, len(conns), msg.Type)
 	for conn := range conns {
 		conn.SetWriteDeadline(time.Now().Add(writeWait))
 		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
