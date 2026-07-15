@@ -102,6 +102,7 @@
             <button class="btn" onclick="openBankViewer()">📂 查看题库</button>
             <button class="btn" onclick="openBankEditor()">✏️ 编辑题库</button>
             <button class="btn" onclick="clearLog()">🗑️ 清空日志</button>
+            <button id="btn-users" class="btn" onclick="openUserManager()" style="display:none;">👥 用户管理</button>
         </div>
 
         <fieldset class="group-box group-box-log">
@@ -276,6 +277,44 @@
                     <input type="file" accept="image/*" style="display:none;" onchange="qrFromFile(this)">
                 </label>
                 <button class="btn btn-sm" onclick="closeQRScanner()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用户管理模态框 -->
+    <div id="modal-users" class="modal" style="display:none">
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h3>用户管理</h3>
+                <button class="close-btn" onclick="closeModal('modal-users')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="font-size: 12px; color: #64748b;">添加、编辑或删除允许登录的用户</div>
+                <div id="user-list" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px;"></div>
+                <div style="border-top: 1px solid var(--border); padding-top: 12px;">
+                    <div style="font-weight: 600; margin-bottom: 8px; color: #4f46e5;">── 添加/编辑用户 ──</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                        <div><label style="font-size:12px;">员工号</label><input type="text" id="edit-user-eid" placeholder="员工号"></div>
+                        <div><label style="font-size:12px;">姓名</label><input type="text" id="edit-user-name" placeholder="姓名"></div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                        <div><label style="font-size:12px;">部门</label><input type="text" id="edit-user-dept" placeholder="部门"></div>
+                        <div><label style="font-size:12px;">管理员</label>
+                            <select id="edit-user-admin" style="width:100%;">
+                                <option value="no">否</option>
+                                <option value="yes">是</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-sm btn-primary" onclick="addOrUpdateUser()">保存用户</button>
+                        <button class="btn btn-sm" onclick="clearUserForm()">清空</button>
+                    </div>
+                    <div id="user-edit-status" style="font-size: 12px; color: #10b981; min-height: 18px; margin-top: 4px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-sm" onclick="closeModal('modal-users')">关闭</button>
             </div>
         </div>
     </div>

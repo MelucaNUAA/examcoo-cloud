@@ -90,6 +90,13 @@ function showApp() {
     document.getElementById('app-main').style.display = 'flex';
     document.getElementById('user-info').textContent = user.name + ' (' + user.employee_id + ')';
 
+    // Show admin button if user is admin
+    if (user.is_admin) {
+        document.getElementById('btn-users').style.display = '';
+    } else {
+        document.getElementById('btn-users').style.display = 'none';
+    }
+
     // Auto-fill user info
     document.getElementById('user-name').value = user.name || '';
     document.getElementById('user-eid').value = user.employee_id || '';
@@ -98,6 +105,122 @@ function showApp() {
     loadConfig();
     refreshBankStats();
     connectSSE();
+}
+
+// ── 用户管理 ──
+let editingUserIdx = -1;
+
+async function openUserManager() {
+    editingUserIdx = -1;
+    clearUserForm();
+    await loadUserList();
+    showModal('modal-users');
+}
+
+async function loadUserList() {
+    const resp = await api('GET', '/users');
+    const users = resp.data || resp || [];
+    const container = document.getElementById('user-list');
+
+    if (users.length === 0) {
+        container.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;">暂无用户</div>';
+        return;
+    }
+
+    container.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+        '<thead><tr style="background:#f1f5f9;">' +
+        '<th style="padding:8px;text-align:left;border-bottom:1px solid var(--border);">员工号</th>' +
+        '<th style="padding:8px;text-align:left;border-bottom:1px solid var(--border);">姓名</th>' +
+        '<th style="padding:8px;text-align:left;border-bottom:1px solid var(--border);">部门</th>' +
+        '<th style="padding:8px;text-align:center;border-bottom:1px solid var(--border);">管理员</th>' +
+        '<th style="padding:8px;text-align:center;border-bottom:1px solid var(--border);">操作</th>' +
+        '</tr></thead><tbody>' +
+        users.map((u, i) =>
+            '<tr style="border-bottom:1px solid #f1f5f9;">' +
+            '<td style="padding:8px;">' + esc(u.employee_id) + '</td>' +
+            '<td style="padding:8px;">' + esc(u.name) + '</td>' +
+            '<td style="padding:8px;">' + esc(u.department || '-') + '</td>' +
+            '<td style="padding:8px;text-align:center;">' + (u.is_admin ? '✓' : '') + '</td>' +
+            '<td style="padding:8px;text-align:center;">' +
+            '<button class="btn btn-sm" onclick="editUser(' + i + ')" style="margin-right:4px;">编辑</button>' +
+            '<button class="btn btn-sm btn-danger" onclick="deleteUser(' + i + ')">删除</button>' +
+            '</td></tr>'
+        ).join('') +
+        '</tbody></table>';
+}
+
+function editUser(idx) {
+    const resp = api('GET', '/users').then(r => {
+        const users = r.data || r || [];
+        if (idx >= users.length) return;
+        const u = users[idx];
+        editingUserIdx = idx;
+        document.getElementById('edit-user-eid').value = u.employee_id || '';
+        document.getElementById('edit-user-name').value = u.name || '';
+        document.getElementById('edit-user-dept').value = u.department || '';
+        document.getElementById('edit-user-admin').value = u.is_admin ? 'yes' : 'no';
+        document.getElementById('user-edit-status').textContent = '正在编辑: ' + u.name;
+    });
+}
+
+async function addOrUpdateUser() {
+    const eid = document.getElementById('edit-user-eid').value.trim();
+    const name = document.getElementById('edit-user-name').value.trim();
+    const dept = document.getElementById('edit-user-dept').value.trim();
+    const isAdmin = document.getElementById('edit-user-admin').value === 'yes';
+
+    if (!eid || !name) {
+        document.getElementById('user-edit-status').textContent = '员工号和姓名不能为空';
+        document.getElementById('user-edit-status').style.color = '#ef4444';
+        return;
+    }
+
+    const resp = await api('GET', '/users');
+    let users = resp.data || resp || [];
+
+    if (editingUserIdx >= 0 && editingUserIdx < users.length) {
+        // Update existing
+        users[editingUserIdx] = { employee_id: eid, name: name, department: dept, is_admin: isAdmin };
+    } else {
+        // Check duplicate
+        if (users.some(u => u.employee_id === eid)) {
+            document.getElementById('user-edit-status').textContent = '员工号已存在';
+            document.getElementById('user-edit-status').style.color = '#ef4444';
+            return;
+        }
+        users.push({ employee_id: eid, name: name, department: dept, is_admin: isAdmin });
+    }
+
+    const saveResp = await api('PUT', '/users', users);
+    if (saveResp.error) {
+        document.getElementById('user-edit-status').textContent = saveResp.error;
+        document.getElementById('user-edit-status').style.color = '#ef4444';
+        return;
+    }
+
+    document.getElementById('user-edit-status').textContent = '保存成功';
+    document.getElementById('user-edit-status').style.color = '#10b981';
+    editingUserIdx = -1;
+    clearUserForm();
+    await loadUserList();
+}
+
+async function deleteUser(idx) {
+    if (!confirm('确定删除此用户？')) return;
+    const resp = await api('GET', '/users');
+    let users = resp.data || resp || [];
+    users.splice(idx, 1);
+    await api('PUT', '/users', users);
+    await loadUserList();
+}
+
+function clearUserForm() {
+    editingUserIdx = -1;
+    document.getElementById('edit-user-eid').value = '';
+    document.getElementById('edit-user-name').value = '';
+    document.getElementById('edit-user-dept').value = '';
+    document.getElementById('edit-user-admin').value = 'no';
+    document.getElementById('user-edit-status').textContent = '';
 }
 
 // ── SSE (Server-Sent Events) ──
