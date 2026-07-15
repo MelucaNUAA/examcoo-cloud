@@ -15,7 +15,7 @@ func main() {
 		port = "8080"
 	}
 
-	hub := api.NewWsHub()
+	hub := api.NewSseHub()
 	app := api.NewApp(hub)
 	router := api.NewRouter(app, hub)
 

@@ -6,11 +6,11 @@ import (
 )
 
 // NewRouter creates the HTTP router with all API endpoints
-func NewRouter(app *App, hub *WsHub) http.Handler {
+func NewRouter(app *App, hub *SseHub) http.Handler {
 	mux := http.NewServeMux()
 
-	// WebSocket
-	mux.HandleFunc("/ws", hub.HandleWS)
+	// SSE endpoint
+	mux.HandleFunc("/events", hub.HandleSSE)
 
 	// Config
 	mux.HandleFunc("GET /api/config", app.GetConfig)

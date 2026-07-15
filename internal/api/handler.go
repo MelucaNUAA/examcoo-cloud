@@ -26,11 +26,11 @@ type App struct {
 	mu           sync.Mutex
 	tasks        map[string]*Task
 	cachedModels []string
-	hub          *WsHub
+	hub          *SseHub
 }
 
 // NewApp creates a new App instance
-func NewApp(hub *WsHub) *App {
+func NewApp(hub *SseHub) *App {
 	cfg := core.LoadConfig()
 	return &App{
 		cfg:   cfg,
@@ -39,10 +39,10 @@ func NewApp(hub *WsHub) *App {
 	}
 }
 
-// emit creates an Emit callback that broadcasts via WebSocket
+// emit creates an Emit callback that broadcasts via SSE
 func (a *App) emit(taskID string) core.Emit {
 	return func(text, level string) {
-		a.hub.Broadcast(taskID, WsMessage{
+		a.hub.Broadcast(taskID, SseMessage{
 			Type: "log",
 			Data: map[string]string{"text": text, "level": level},
 		})
@@ -51,7 +51,7 @@ func (a *App) emit(taskID string) core.Emit {
 
 // sendTaskState broadcasts task state change
 func (a *App) sendTaskState(taskID string, running bool) {
-	a.hub.Broadcast(taskID, WsMessage{
+	a.hub.Broadcast(taskID, SseMessage{
 		Type: "task-state",
 		Data: map[string]bool{"running": running},
 	})
@@ -60,7 +60,7 @@ func (a *App) sendTaskState(taskID string, running bool) {
 // sendBankStats broadcasts bank stats to all clients
 func (a *App) sendBankStats() {
 	total, verified := core.BankStats()
-	a.hub.BroadcastAll(WsMessage{
+	a.hub.BroadcastAll(SseMessage{
 		Type: "bank-stats",
 		Data: map[string]int{"total": total, "verified": verified},
 	})

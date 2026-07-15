@@ -5,7 +5,7 @@ let bankEditRows = [];
 let bankEditFiltered = [];
 let selectedEditRow = -1;
 let bankViewRows = [];
-let ws = null;
+let eventSource = null;
 let currentTaskId = null;
 
 // ── API 工具函数 ──
@@ -21,29 +21,17 @@ async function api(method, path, body) {
     return resp.json();
 }
 
-// ── WebSocket ──
-let wsReconnectDelay = 1000;
-const WS_MAX_RECONNECT_DELAY = 30000;
-let wsShouldReconnect = true;
-
-function connectWS(taskId) {
-    // Prevent multiple simultaneous connections
-    if (ws) {
-        wsShouldReconnect = false; // Disable reconnect for old connection
-        ws.close();
-        ws = null;
+// ── SSE (Server-Sent Events) ──
+function connectSSE(taskId) {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
     }
-    wsShouldReconnect = true;
-
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = taskId
-        ? proto + '//' + location.host + '/ws?task_id=' + taskId
-        : proto + '//' + location.host + '/ws?task_id=_global';
-    ws = new WebSocket(url);
-    ws.onopen = () => {
-        wsReconnectDelay = 1000; // Reset delay on successful connection
-    };
-    ws.onmessage = (e) => {
+        ? '/events?task_id=' + taskId
+        : '/events?task_id=_global';
+    eventSource = new EventSource(url);
+    eventSource.onmessage = (e) => {
         try {
             const msg = JSON.parse(e.data);
             if (msg.type === 'log') {
@@ -60,26 +48,16 @@ function connectWS(taskId) {
             }
         } catch (err) {}
     };
-    ws.onclose = () => {
-        if (!wsShouldReconnect) return; // Skip reconnect if disabled
-        // Exponential backoff for reconnection
-        const delay = wsReconnectDelay;
-        wsReconnectDelay = Math.min(wsReconnectDelay * 2, WS_MAX_RECONNECT_DELAY);
-        setTimeout(() => {
-            if (wsShouldReconnect) {
-                if (currentTaskId) connectWS(currentTaskId);
-                else connectWS();
-            }
-        }, delay);
+    eventSource.onerror = () => {
+        // SSE will auto-reconnect
     };
-    ws.onerror = () => {};
 }
 
 // ── 初始化 ──
 window.addEventListener('DOMContentLoaded', () => {
     loadConfig();
     refreshBankStats();
-    connectWS();
+    connectSSE();
 
     // 移动端默认收起 AI 配置区域
     if (window.innerWidth <= 768) {
@@ -252,7 +230,7 @@ async function startTask() {
 async function doStartTask(url, cfg, mode) {
     // Generate a temporary task ID for WebSocket connection
     const tempTaskId = 'task_' + Date.now();
-    connectWS(tempTaskId);
+    connectSSE(tempTaskId);
 
     const resp = await api('POST', '/task/start', { exam_url: url, config: cfg, mode: mode });
     if (resp.error) {
@@ -261,7 +239,7 @@ async function doStartTask(url, cfg, mode) {
     }
     currentTaskId = resp.data.task_id;
     // Reconnect with the real task ID
-    connectWS(currentTaskId);
+    connectSSE(currentTaskId);
 }
 
 function stopTask() {
