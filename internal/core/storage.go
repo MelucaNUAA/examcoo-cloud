@@ -85,18 +85,19 @@ func LoadUserConfigFromRedis(employeeID string) Config {
 	// Decrypt API Key
 	if cfg.APIKey != "" {
 		decrypted, err := Decrypt(cfg.APIKey)
-		if err == nil {
+		if err == nil && decrypted != "" {
 			cfg.APIKey = decrypted
 		}
+		// If decrypt fails, keep original (might be plaintext)
 	}
 
 	return cfg
 }
 
 // SaveUserConfigToRedis saves user config to Redis
-func SaveUserConfigToRedis(employeeID string, cfg Config) error {
-	// Encrypt API Key before saving
-	if cfg.APIKey != "" {
+func SaveUserConfigToRedis(employeeID string, cfg Config, skipEncryptKey bool) error {
+	// Encrypt API Key before saving (unless it's already encrypted)
+	if cfg.APIKey != "" && !skipEncryptKey {
 		encrypted, err := Encrypt(cfg.APIKey)
 		if err != nil {
 			return err

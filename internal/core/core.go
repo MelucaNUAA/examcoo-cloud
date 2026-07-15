@@ -158,7 +158,20 @@ func LoadUserConfig(employeeID string) Config {
 // SaveUserConfig saves user-specific config
 func SaveUserConfig(employeeID string, cfg Config) error {
 	if UseRedis() {
-		return SaveUserConfigToRedis(employeeID, cfg)
+		return SaveUserConfigToRedis(employeeID, cfg, false)
+	}
+
+	if err := EnsureUserDir(employeeID); err != nil {
+		return err
+	}
+	data, _ := json.MarshalIndent(cfg, "", "  ")
+	return os.WriteFile(UserConfigPath(employeeID), data, 0644)
+}
+
+// SaveUserConfigRaw saves config without encrypting API Key
+func SaveUserConfigRaw(employeeID string, cfg Config) error {
+	if UseRedis() {
+		return SaveUserConfigToRedis(employeeID, cfg, true)
 	}
 
 	if err := EnsureUserDir(employeeID); err != nil {

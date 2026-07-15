@@ -166,19 +166,26 @@ func (a *App) SaveConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If API key is masked (contains ****), keep the original value
+	// If API key is masked (contains ****), keep the original encrypted value
 	if strings.Contains(cfg.APIKey, "****") {
+		// Load from Redis directly to get encrypted value
 		oldCfg := core.LoadUserConfig(employeeID)
 		cfg.APIKey = oldCfg.APIKey
+		// Save without re-encrypting
+		if err := core.SaveUserConfigRaw(employeeID, cfg); err != nil {
+			respondError(w, "save failed: "+err.Error())
+			return
+		}
 		log.Printf("Config saved for %s: API Key kept original (masked)", employeeID)
 	} else {
+		// Save with encryption
+		if err := core.SaveUserConfig(employeeID, cfg); err != nil {
+			respondError(w, "save failed: "+err.Error())
+			return
+		}
 		log.Printf("Config saved for %s: API Key length=%d", employeeID, len(cfg.APIKey))
 	}
 
-	if err := core.SaveUserConfig(employeeID, cfg); err != nil {
-		respondError(w, "save failed: "+err.Error())
-		return
-	}
 	respondOK(w, nil)
 }
 
