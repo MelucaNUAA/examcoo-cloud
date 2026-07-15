@@ -164,6 +164,13 @@ func (a *App) SaveConfig(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "invalid request body")
 		return
 	}
+
+	// If API key is masked (contains ****), keep the original value
+	if strings.Contains(cfg.APIKey, "****") {
+		oldCfg := core.LoadUserConfig(employeeID)
+		cfg.APIKey = oldCfg.APIKey
+	}
+
 	if err := core.SaveUserConfig(employeeID, cfg); err != nil {
 		respondError(w, "save failed: "+err.Error())
 		return
