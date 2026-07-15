@@ -37,6 +37,28 @@ func InitStorage() {
 	}
 
 	log.Println("Connected to Redis successfully")
+
+	// Initialize default admin if users list is empty
+	initDefaultUsers()
+}
+
+// initDefaultUsers creates default admin user if no users exist
+func initDefaultUsers() {
+	users := LoadUsersFromRedis()
+	if len(users) > 0 {
+		return
+	}
+
+	defaultUsers := []UserEntry{
+		{EmployeeID: "admin", Name: "管理员", Department: "管理部", IsAdmin: true},
+	}
+
+	if err := SaveUsersToRedis(defaultUsers); err != nil {
+		log.Printf("Failed to create default users: %v", err)
+		return
+	}
+
+	log.Println("Created default admin user (admin/管理员)")
 }
 
 // UseRedis returns true if Redis is available
